@@ -9,6 +9,24 @@ import Dispatch
 
 // MARK: - API
 
+@_disfavoredOverload
+@discardableResult public func shellOut(
+    to command: String,
+    arguments: [String] = [],
+    at path: String = ".",
+    process: Process = .init(),
+    outputHandle: FileHandle? = nil,
+    errorHandle: FileHandle? = nil
+) throws -> Data {
+    let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
+
+    return try process.launchBash(
+        with: command,
+        outputHandle: outputHandle,
+        errorHandle: errorHandle
+    )
+}
+
 /**
  *  Run a shell command using Bash
  *
@@ -35,13 +53,14 @@ import Dispatch
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
-    let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
-
-    return try process.launchBash(
-        with: command,
+    try shellOut(
+        to: command,
+        arguments: arguments,
+        at: path,
+        process: process,
         outputHandle: outputHandle,
         errorHandle: errorHandle
-    )
+    ).shellOutput()
 }
 
 /**
@@ -379,7 +398,7 @@ extension ShellOutError: LocalizedError {
 // MARK: - Private
 
 private extension Process {
-    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
+    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> Data {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
 
@@ -451,7 +470,7 @@ private extension Process {
                 )
             }
 
-            return outputData.shellOutput()
+            return outputData
         }
     }
 }
