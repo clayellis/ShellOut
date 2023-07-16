@@ -20,11 +20,13 @@ import Dispatch
 ) throws -> Data {
     let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
 
-    return try process.launchBash(
+    let output = try process.launchBash(
         with: command,
         outputHandle: outputHandle,
         errorHandle: errorHandle
     )
+
+    return output.removingTrailingNewline
 }
 
 /**
@@ -53,14 +55,16 @@ import Dispatch
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
-    try shellOut(
+    let output: Data = try shellOut(
         to: command,
         arguments: arguments,
         at: path,
         process: process,
         outputHandle: outputHandle,
         errorHandle: errorHandle
-    ).shellOutput()
+    )
+
+    return String(data: output, encoding: .utf8) ?? ""
 }
 
 /**
@@ -484,18 +488,25 @@ private extension FileHandle {
 }
 
 private extension Data {
-    func shellOutput() -> String {
+    var removingTrailingNewline: Data {
         guard let output = String(data: self, encoding: .utf8) else {
+            return self
+        }
+
+        guard output.hasSuffix("\n") else {
+            return self
+        }
+
+        let endIndex = output.index(before: output.endIndex)
+        return Data(output[..<endIndex].utf8)
+    }
+
+    func shellOutput() -> String {
+        guard let output = String(data: self.removingTrailingNewline, encoding: .utf8) else {
             return ""
         }
 
-        guard !output.hasSuffix("\n") else {
-            let endIndex = output.index(before: output.endIndex)
-            return String(output[..<endIndex])
-        }
-
         return output
-
     }
 }
 
